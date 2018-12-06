@@ -46,6 +46,7 @@
 #include "spectrum.h"
 #include <stdio.h>
 #include <map>
+#include <iostream>  
 
 namespace pbrt {
 

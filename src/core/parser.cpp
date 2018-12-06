@@ -839,13 +839,13 @@ static void parse(std::unique_ptr<Tokenizer> t) {
     // Helper function for pbrt API entrypoints that take a single string
     // parameter and a ParamSet (e.g. pbrtShape()).
     auto basicParamListEntrypoint = [&](
-        SpectrumType spectrumType,
-        std::function<void(const std::string &n, ParamSet p)> apiFunc) {
+		SpectrumType spectrumType, 
+		std::function<void(const std::string &n, ParamSet p)> apiFunc)
+	{
         string_view token = nextToken(TokenRequired);
         string_view dequoted = dequoteString(token);
         std::string n = toString(dequoted);
-        ParamSet params =
-            parseParams(nextToken, ungetToken, arena, spectrumType);
+        ParamSet params = parseParams(nextToken, ungetToken, arena, spectrumType);
         apiFunc(n, std::move(params));
     };
 
@@ -898,9 +898,11 @@ static void parse(std::unique_ptr<Tokenizer> t) {
             } else if (tok == "CoordSysTransform") {
                 string_view n = dequoteString(nextToken(TokenRequired));
                 pbrtCoordSysTransform(toString(n));
-            } else if (tok == "Camera")
+            } else if (tok == "Camera")	{
                 basicParamListEntrypoint(SpectrumType::Reflectance, pbrtCamera);
-            else
+			} else if (tok == "CyHairEnd") {
+				makeLodHair();
+			} else
                 syntaxError(tok);
             break;
 
@@ -947,7 +949,11 @@ static void parse(std::unique_ptr<Tokenizer> t) {
                     v[i] = parseNumber(nextToken(TokenRequired));
                 pbrtLookAt(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7],
                            v[8]);
-            } else
+            }
+			else if (tok == "LODLevel") {
+				setLODLevel(parseNumber(nextToken(TokenRequired)));
+			}
+			else
                 syntaxError(tok);
             break;
 

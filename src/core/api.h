@@ -91,6 +91,10 @@ void pbrtWorldEnd();
 void pbrtParseFile(std::string filename);
 void pbrtParseString(std::string str);
 
+void setLODLevel(int l);
+void makeLodHair();
+void addCYCurve(std::vector<std::shared_ptr<Shape>> shapes);
+
 }  // namespace pbrt
 
 #endif  // PBRT_CORE_API_H

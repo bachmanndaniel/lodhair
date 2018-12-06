@@ -375,6 +375,26 @@ static std::vector<uint32_t> pushedActiveTransformBits;
 static TransformCache transformCache;
 int catIndentCount = 0;
 
+
+//struct HairShape {
+//	std::shared_ptr<Curve> curve;
+//	const int primID;
+//
+//	HairShape(const int PID, std::shared_ptr<Curve> c) :
+//		primID(PID), curve(c) {}
+//
+//	HairShape(const HairShape&& hs) :
+//		primID(hs.primID), curve(hs.curve) {}
+//};
+
+//pre LOD calculation hair curves
+typedef std::vector<std::shared_ptr<Shape>> shapeVector;
+typedef std::vector<Point3f> P3FVec;
+static std::vector<shapeVector> hairs;
+static std::vector<P3FVec> hairPoints;
+static int lastPrim = 0;
+static int LODLevel = 0;
+
 // API Forward Declarations
 std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                                                const Transform *ObjectToWorld,
@@ -533,6 +553,7 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                              paramSet);
     else
         Warning("Shape \"%s\" unknown.", name.c_str());
+
     return shapes;
 }
 
@@ -1330,8 +1351,71 @@ void pbrtAreaLightSource(const std::string &name, const ParamSet &params) {
     }
 }
 
+void setLODLevel(int l) {
+	LODLevel = l;
+}
+
+void addCYCurve(const ParamSet &params) {
+
+	int ncp;
+	const Point3f *cp = params.FindPoint3f("P", &ncp);
+	const int primID = params.FindOneInt("primId", 0);
+	std::vector<Point3f> points(ncp);
+
+	for (size_t i = 0; i < ncp; i++)
+		points[i] = std::move(cp[i]);
+
+	if (hairPoints.size() < 1 || primID != lastPrim) {
+		hairPoints.push_back(P3FVec());
+		lastPrim = primID;
+	}
+
+	hairPoints[lastPrim].insert(hairPoints[lastPrim].end(),
+		std::make_move_iterator(points.begin()),
+		std::make_move_iterator(points.end()));
+}
+
+void makeLodHair() {
+	lastPrim = 0;
+
+	std::cout << "api.cpp makeLodHair" << std::endl;
+
+	//for (auto vec : hairPoints)
+	//{
+	//	for(auto v : vec) {
+	//		/*auto cc = std::static_pointer_cast<Curve>(v).get()->Common().get();
+	//		std::cout << cc->cpObj[0] << "\n";
+	//		std::cout << cc->cpObj[1] << "\n";
+	//		std::cout << cc->cpObj[2] << "\n";
+	//		std::cout << cc->cpObj[3] << "\n";*/
+	//		std::cout << v << ", ";
+	//	}
+	//	std::cout << std::endl << std::endl;
+	//}
+
+
+	// Submit combined hair to scene
+	//for (auto hair : hairPoints)
+	//{
+	//	auto pts = std::make_unique<Point3f[]>(0);
+
+	//	ParamSet params;
+	//	params.AddPoint3f("P", pts, hair.size());
+
+	//}
+}
+
 void pbrtShape(const std::string &name, const ParamSet &params) {
     VERIFY_WORLD("Shape");
+
+	std::cout << params.ToString() << std::endl;
+
+	const int cyCurve = params.FindOneInt("cyCurve", 0);
+	if (cyCurve == 1) {
+		addCYCurve(params);
+		return;
+	}
+
     std::vector<std::shared_ptr<Primitive>> prims;
     std::vector<std::shared_ptr<AreaLight>> areaLights;
     if (PbrtOptions.cat || (PbrtOptions.toPly && name != "trianglemesh")) {
@@ -1349,11 +1433,15 @@ void pbrtShape(const std::string &name, const ParamSet &params) {
         std::vector<std::shared_ptr<Shape>> shapes =
             MakeShapes(name, ObjToWorld, WorldToObj,
                        graphicsState.reverseOrientation, params);
+
         if (shapes.empty()) return;
+
         std::shared_ptr<Material> mtl = graphicsState.GetMaterialForShape(params);
         params.ReportUnused();
         MediumInterface mi = graphicsState.CreateMediumInterface();
+
         prims.reserve(shapes.size());
+
         for (auto s : shapes) {
             // Possibly create area light for shape
             std::shared_ptr<AreaLight> area;
@@ -1362,9 +1450,10 @@ void pbrtShape(const std::string &name, const ParamSet &params) {
                                      mi, graphicsState.areaLightParams, s);
                 if (area) areaLights.push_back(area);
             }
-            prims.push_back(
-                std::make_shared<GeometricPrimitive>(s, mtl, area, mi));
+
+            prims.push_back(std::make_shared<GeometricPrimitive>(s, mtl, area, mi));
         }
+
     } else {
         // Initialize _prims_ and _areaLights_ for animated shape
 
@@ -1407,6 +1496,7 @@ void pbrtShape(const std::string &name, const ParamSet &params) {
         prims[0] = std::make_shared<TransformedPrimitive>(
             prims[0], animatedObjectToWorld);
     }
+
     // Add _prims_ and _areaLights_ to scene or current instance
     if (renderOptions->currentInstance) {
         if (areaLights.size())

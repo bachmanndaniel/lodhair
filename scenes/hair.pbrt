@@ -1,0 +1,54 @@
+
+LookAt 100 0 100  # eye
+       0 0 0  # look at point
+       0 0 1    # up vector
+
+Camera "perspective" "float fov" [39]
+
+#output file
+Film "image" 
+	"integer xresolution" [700] 
+	"integer yresolution" [700] 
+	"string filename" "hair.exr"
+
+#sampler
+Sampler "halton" "integer pixelsamples" [8]
+
+#integrator
+Integrator "path"
+
+
+WorldBegin
+
+# uniform blue-ish illumination from all directions
+LightSource "infinite" "rgb L" [.4 .45 .5]
+
+# approximate the sun
+LightSource "distant"  "point from" [ -30 40  100 ]
+   "blackbody L" [3000 1.5]
+
+#hair model
+AttributeBegin
+  Scale .5 .5 .5
+  Rotate 90 1 0	0
+  Rotate 90 0 1	0
+  Translate 0 0 3
+
+  LODLevel 1
+  Material "hair"
+  Include "hair/cystraight.pbrt"
+AttributeEnd
+
+AttributeBegin
+  Texture "checks" "spectrum" "checkerboard"
+          "float uscale" [8] "float vscale" [8]
+          "rgb tex1" [.1 .1 .1] "rgb tex2" [.8 .8 .8]
+  Material "matte" "texture Kd" "checks"
+  Translate 0 0 -1
+  Shape "trianglemesh"
+      "integer indices" [0 1 2 0 2 3]
+      "point P" [ -20 -20 0   20 -20 0   20 20 0   -20 20 0 ]
+      "float st" [ 0 0   1 0    1 1   0 1 ]
+AttributeEnd
+
+WorldEnd

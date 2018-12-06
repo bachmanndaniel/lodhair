@@ -51,11 +51,13 @@ enum class CurveType { Flat, Cylinder, Ribbon };
 struct CurveCommon {
     CurveCommon(const Point3f c[4], Float w0, Float w1, CurveType type,
                 const Normal3f *norm);
-    const CurveType type;
+    const CurveType type;	
     Point3f cpObj[4];
     Float width[2];
     Normal3f n[2];
     Float normalAngle, invSinNormalAngle;
+
+	int primId;
 };
 
 // Curve Declarations
@@ -74,6 +76,8 @@ class Curve : public Shape {
                    bool testAlphaTexture) const;
     Float Area() const;
     Interaction Sample(const Point2f &u, Float *pdf) const;
+
+	std::shared_ptr<CurveCommon> Common() { return common; }
 
   private:
     // Curve Private Methods

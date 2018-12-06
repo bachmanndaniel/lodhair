@@ -173,6 +173,7 @@ class CyHair {
   /// TODO(syoyo) return strand/segment information
   bool ToCubicBezierCurves(std::vector<float> *vertices,
                            std::vector<float> *radiuss,
+						   std::vector<int> *primIds,
                            const float vertex_scale[3],
                            const float vertex_translate[3],
                            const int max_strands = -1,
@@ -249,8 +250,7 @@ bool CyHair::Load(const char *filename) {
   // First read all strand data from a file.
   if (has_segments) {
     segments_.resize(num_strands_);
-    if (1 !=
-        fread(&segments_[0], sizeof(unsigned short) * num_strands_, 1, fp)) {
+    if (1 != fread(&segments_[0], sizeof(unsigned short) * num_strands_, 1, fp)) {
       std::cout << "Failed to read CyHair segments data." << std::endl;
       fclose(fp);
       return false;
@@ -311,6 +311,7 @@ bool CyHair::Load(const char *filename) {
 
 bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
                                  std::vector<float> *radiuss,
+								 std::vector<int> *primIds,
                                  const float vertex_scale[3],
                                  const float vertex_translate[3],
                                  const int max_strands, const float user_thickness) {
@@ -383,6 +384,9 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
         radiuss->push_back(default_thickness_);
         radiuss->push_back(default_thickness_);
       }
+
+	  // hair ID for combination of strands
+	  primIds->push_back(i);
     }
   }
 
@@ -437,10 +441,11 @@ int main(int argc, char *argv[]) {
 
     std::vector<float> points;
     std::vector<float> radiuss;
+	std::vector<int> primIds;
     const float vertex_scale[3] = {1.0f, 1.0f, 1.0f};
     const float vertex_translate[3] = {0.0f, 0.0f, 0.0f};
     ret =
-        hair.ToCubicBezierCurves(&points, &radiuss, vertex_scale,
+        hair.ToCubicBezierCurves(&points, &radiuss, &primIds, vertex_scale,
                                  vertex_translate, max_strands, user_thickness);
     if (!ret) {
         fprintf(stderr, "Failed to convert CyHair data\n");
@@ -475,10 +480,15 @@ int main(int argc, char *argv[]) {
         for (size_t j = 0; j < 12; j++) {
             fprintf(f, "%f ", static_cast<double>(points[12 * i + j]));
         }
-        fprintf(f, " ] \"float width0\" [ %f ] \"float width1\" [ %f ]\n",
+        fprintf(f, " ] \"float width0\" [ %f ] \"float width1\" [ %f ]",
                 static_cast<double>(radiuss[4 * i + 0]),
                 static_cast<double>(radiuss[4 * i + 3]));
+		fprintf(f, " \" integer primId\" [ %i ]", static_cast<int>(primIds[i]));
+		fprintf(f, " \" integer cyCurve\" [ %i ]\n", static_cast<int>(0));
+		
     }
+
+	//fprintf(f, "CyHairEnd\n");
 
     if (f != stdout) fclose(f);
 
