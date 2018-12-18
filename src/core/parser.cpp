@@ -900,8 +900,6 @@ static void parse(std::unique_ptr<Tokenizer> t) {
                 pbrtCoordSysTransform(toString(n));
             } else if (tok == "Camera")	{
                 basicParamListEntrypoint(SpectrumType::Reflectance, pbrtCamera);
-			} else if (tok == "CyHairEnd") {
-				makeLodHair();
 			} else
                 syntaxError(tok);
             break;
@@ -950,9 +948,6 @@ static void parse(std::unique_ptr<Tokenizer> t) {
                 pbrtLookAt(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7],
                            v[8]);
             }
-			else if (tok == "LODLevel") {
-				setLODLevel(parseNumber(nextToken(TokenRequired)));
-			}
 			else
                 syntaxError(tok);
             break;

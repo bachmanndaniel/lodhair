@@ -1351,70 +1351,8 @@ void pbrtAreaLightSource(const std::string &name, const ParamSet &params) {
     }
 }
 
-void setLODLevel(int l) {
-	LODLevel = l;
-}
-
-void addCYCurve(const ParamSet &params) {
-
-	int ncp;
-	const Point3f *cp = params.FindPoint3f("P", &ncp);
-	const int primID = params.FindOneInt("primId", 0);
-	std::vector<Point3f> points(ncp);
-
-	for (size_t i = 0; i < ncp; i++)
-		points[i] = std::move(cp[i]);
-
-	if (hairPoints.size() < 1 || primID != lastPrim) {
-		hairPoints.push_back(P3FVec());
-		lastPrim = primID;
-	}
-
-	hairPoints[lastPrim].insert(hairPoints[lastPrim].end(),
-		std::make_move_iterator(points.begin()),
-		std::make_move_iterator(points.end()));
-}
-
-void makeLodHair() {
-	lastPrim = 0;
-
-	std::cout << "api.cpp makeLodHair" << std::endl;
-
-	//for (auto vec : hairPoints)
-	//{
-	//	for(auto v : vec) {
-	//		/*auto cc = std::static_pointer_cast<Curve>(v).get()->Common().get();
-	//		std::cout << cc->cpObj[0] << "\n";
-	//		std::cout << cc->cpObj[1] << "\n";
-	//		std::cout << cc->cpObj[2] << "\n";
-	//		std::cout << cc->cpObj[3] << "\n";*/
-	//		std::cout << v << ", ";
-	//	}
-	//	std::cout << std::endl << std::endl;
-	//}
-
-
-	// Submit combined hair to scene
-	//for (auto hair : hairPoints)
-	//{
-	//	auto pts = std::make_unique<Point3f[]>(0);
-
-	//	ParamSet params;
-	//	params.AddPoint3f("P", pts, hair.size());
-
-	//}
-}
-
 void pbrtShape(const std::string &name, const ParamSet &params) {
     VERIFY_WORLD("Shape");
-
-	std::cout << params.ToString() << std::endl;
-
-	const int cyCurve = params.FindOneInt("cyCurve", 0);
-	if (cyCurve == 1) {
-		addCYCurve(params);
-		return;
-	}
 
     std::vector<std::shared_ptr<Primitive>> prims;
     std::vector<std::shared_ptr<AreaLight>> areaLights;

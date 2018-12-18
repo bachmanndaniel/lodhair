@@ -37,43 +37,12 @@ THE SOFTWARE.
 */
 
 // Simple Cyhair loader.
-
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <vector>
-
-#include <iostream>
+#include "hairutil.h"
+#include <boost/random.hpp>
 
 //#include "cyhair_loader.h"
 
 namespace cyhair {
-
-class real3 {
- public:
-  real3() : x(0.0f), y(0.0f), z(0.0f) {}
-  real3(float v) : x(v), y(v), z(v) {}
-  real3(float xx, float yy, float zz) : x(xx), y(yy), z(zz) {}
-  //~real3() {}
-
-  real3 operator+(const real3 &f2) const {
-    return real3(x + f2.x, y + f2.y, z + f2.z);
-  }
-  real3 operator*(const real3 &f2) const {
-    return real3(x * f2.x, y * f2.y, z * f2.z);
-  }
-  real3 operator/(const real3 &f2) const {
-    return real3(x / f2.x, y / f2.y, z / f2.z);
-  }
-  real3 operator/(const float f) const { return real3(x / f, y / f, z / f); }
-
-  float x, y, z;
-};
-
-inline real3 operator*(float f, const real3 &v) {
-  return real3(v.x * f, v.y * f, v.z * f);
-}
 
 static const float toC2B[4][4] = {
     {0.0f, 6.0f / 6.0f, 0.0f, 0.0f},
@@ -100,8 +69,8 @@ static void mul_matrix(real3 out[4], const float mat[4][4], const real3 pt[4]) {
   }
 }
 
-static void CamullRomToCubicBezier(real3 Q[4], const real3 *cps, int cps_size,
-                                   int seg_idx) {
+static void CamullRomToCubicBezier(real3 Q[4], const real3 *cps, int cps_size, int seg_idx) 
+{
   size_t sz = static_cast<size_t>(cps_size);
   if (sz == 2) {
     Q[0] = cps[seg_idx];
@@ -173,11 +142,11 @@ class CyHair {
   /// TODO(syoyo) return strand/segment information
   bool ToCubicBezierCurves(std::vector<float> *vertices,
                            std::vector<float> *radiuss,
-						   std::vector<int> *primIds,
                            const float vertex_scale[3],
                            const float vertex_translate[3],
                            const int max_strands = -1,
-                           const float thickness = -1.0f);
+                           const float thickness = -1.0f,
+													 const int lod_level = -1);
 
   CyHairHeader header_;
 
@@ -267,6 +236,7 @@ bool CyHair::Load(const char *filename) {
       return false;
     }
   }
+
   if (has_thickness) {
     std::cout << "[CyHair] Has thickness." << std::endl;
     thicknesses_.resize(total_points_);
@@ -311,10 +281,9 @@ bool CyHair::Load(const char *filename) {
 
 bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
                                  std::vector<float> *radiuss,
-								 std::vector<int> *primIds,
                                  const float vertex_scale[3],
                                  const float vertex_translate[3],
-                                 const int max_strands, const float user_thickness) {
+                                 const int max_strands, const float user_thickness, const int lod_level) {
   if (points_.empty() || strand_offsets_.empty()) {
     return false;
   }
@@ -327,6 +296,8 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
   if ((max_strands > 0) && (max_strands < num_strands)) {
     num_strands = max_strands;
   }
+
+	std::vector<Hair> hairs(num_strands);
 
   std::cout << "[Hair] Convert first " << num_strands << " strands from "
             << max_strands << " strands in the original hair data."
@@ -358,37 +329,207 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
       real3 q[4];
       CamullRomToCubicBezier(q, segment_points.data(), num_segments, seg_idx);
 
-      vertices->push_back(vertex_scale[0] * q[0].x + vertex_translate[0]);
-      vertices->push_back(vertex_scale[1] * q[0].y + vertex_translate[1]);
-      vertices->push_back(vertex_scale[2] * q[0].z + vertex_translate[2]);
-      vertices->push_back(vertex_scale[0] * q[1].x + vertex_translate[0]);
-      vertices->push_back(vertex_scale[1] * q[1].y + vertex_translate[1]);
-      vertices->push_back(vertex_scale[2] * q[1].z + vertex_translate[2]);
-      vertices->push_back(vertex_scale[0] * q[2].x + vertex_translate[0]);
-      vertices->push_back(vertex_scale[1] * q[2].y + vertex_translate[1]);
-      vertices->push_back(vertex_scale[2] * q[2].z + vertex_translate[2]);
-      vertices->push_back(vertex_scale[0] * q[3].x + vertex_translate[0]);
-      vertices->push_back(vertex_scale[1] * q[3].y + vertex_translate[1]);
-      vertices->push_back(vertex_scale[2] * q[3].z + vertex_translate[2]);
+	    q[0].x = vertex_scale[0] * q[0].x + vertex_translate[0];
+	    q[0].y = vertex_scale[1] * q[0].y + vertex_translate[1];
+	    q[0].z = vertex_scale[2] * q[0].z + vertex_translate[2];
+	    q[1].x = vertex_scale[0] * q[1].x + vertex_translate[0];
+	    q[1].y = vertex_scale[1] * q[1].y + vertex_translate[1];
+	    q[1].z = vertex_scale[2] * q[1].z + vertex_translate[2];
+	    q[2].x = vertex_scale[0] * q[2].x + vertex_translate[0];
+	    q[2].y = vertex_scale[1] * q[2].y + vertex_translate[1];
+	    q[2].z = vertex_scale[2] * q[2].z + vertex_translate[2];
+	    q[3].x = vertex_scale[0] * q[3].x + vertex_translate[0];
+	    q[3].y = vertex_scale[1] * q[3].y + vertex_translate[1];
+	    q[3].z = vertex_scale[2] * q[3].z + vertex_translate[2];
 
-      if (user_thickness > 0) {
-        // Use user supplied thickness.
-        radiuss->push_back(user_thickness);
-        radiuss->push_back(user_thickness);
-        radiuss->push_back(user_thickness);
-        radiuss->push_back(user_thickness);
-      } else {
-        // TODO(syoyo) Support per point/segment thickness
-        radiuss->push_back(default_thickness_);
-        radiuss->push_back(default_thickness_);
-        radiuss->push_back(default_thickness_);
-        radiuss->push_back(default_thickness_);
-      }
+	    if(lod_level <= 0) {
+					vertices->push_back(q[0].x);
+					vertices->push_back(q[0].y);
+					vertices->push_back(q[0].z);
+					vertices->push_back(q[1].x);
+					vertices->push_back(q[1].y);
+					vertices->push_back(q[1].z);
+					vertices->push_back(q[2].x);
+					vertices->push_back(q[2].y);
+					vertices->push_back(q[2].z);
+					vertices->push_back(q[3].x);
+					vertices->push_back(q[3].y);
+					vertices->push_back(q[3].z);
 
-	  // hair ID for combination of strands
-	  primIds->push_back(i);
+					//vertices->push_back(vertex_scale[0] * q[0].x + vertex_translate[0]);
+					//vertices->push_back(vertex_scale[1] * q[0].y + vertex_translate[1]);
+					//vertices->push_back(vertex_scale[2] * q[0].z + vertex_translate[2]);
+					//vertices->push_back(vertex_scale[0] * q[1].x + vertex_translate[0]);
+					//vertices->push_back(vertex_scale[1] * q[1].y + vertex_translate[1]);
+					//vertices->push_back(vertex_scale[2] * q[1].z + vertex_translate[2]);
+					//vertices->push_back(vertex_scale[0] * q[2].x + vertex_translate[0]);
+					//vertices->push_back(vertex_scale[1] * q[2].y + vertex_translate[1]);
+					//vertices->push_back(vertex_scale[2] * q[2].z + vertex_translate[2]);
+					//vertices->push_back(vertex_scale[0] * q[3].x + vertex_translate[0]);
+					//vertices->push_back(vertex_scale[1] * q[3].y + vertex_translate[1]);
+					//vertices->push_back(vertex_scale[2] * q[3].z + vertex_translate[2]);
+
+					if (user_thickness > 0) {
+						// Use user supplied thickness.
+						radiuss->push_back(user_thickness);
+						radiuss->push_back(user_thickness);
+						radiuss->push_back(user_thickness);
+						radiuss->push_back(user_thickness);
+					} else {
+						// TODO(syoyo) Support per point/segment thickness
+						radiuss->push_back(default_thickness_);
+						radiuss->push_back(default_thickness_);
+						radiuss->push_back(default_thickness_);
+						radiuss->push_back(default_thickness_);
+					}
+			}
+	    else {
+				hairs[i].cps.push_back(q[0]);
+				hairs[i].cps.push_back(q[1]);
+				hairs[i].cps.push_back(q[2]);
+				hairs[i].cps.push_back(q[3]);
+
+				//Union(hairs[i].bounds, q[0]);
+				//Union(hairs[i].bounds, q[1]);
+				//Union(hairs[i].bounds, q[2]);
+				//Union(hairs[i].bounds, q[3]);
+	    }
     }
   }
+
+
+	//LOD hair combination
+  if (lod_level > 0) {
+	  std::cout << "begin LOD with " << hairs.size() << " hairs.\n";
+
+		const int CPS_PER_SEGMENT = 4;
+		const float MAX_HAIR_RADIUS = 2.0f; //TODO: user defined input for radius in lod levels
+		const float MAX_DISTANCE = MAX_HAIR_RADIUS * 2.0f;
+
+		size_t count = 0;
+		Hair cmp_hair;
+		std::vector<Hair> combined;
+
+		//Sort by distance of hair root CPs
+		auto sortByRootPointDistance = [&cmp_hair](const Hair& h1, const Hair& h2) -> bool {
+				return distance(cmp_hair.cps[0], h1.cps[0]) < distance(cmp_hair.cps[0], h2.cps[0]);
+		};
+
+		//Sort by distance of hair start and end CPs
+		auto sortByStartAndEndPointDistance = [&cmp_hair] (const Hair& h1, const Hair& h2)
+		{
+		float rd1 = distance(h1.cps[0], cmp_hair.cps[0]);
+		float ed1 = distance(h1.cps.back(), cmp_hair.cps.back());
+
+		float rd2 = distance(h2.cps[0], cmp_hair.cps[0]);
+		float ed2 = distance(h2.cps.back(), cmp_hair.cps.back());
+
+		return rd1 + ed1 < rd2 + ed2;
+		};
+
+		//Sort by distance of sample CPs (matching indices) of hair
+		auto sortBySamplePointDistance = [&cmp_hair](const Hair& h1, const Hair& h2) -> bool {					
+				int nSamples = 2;
+				int m = std::min(h1.cps.size(), std::min(h2.cps.size(), cmp_hair.cps.size()));
+				nSamples = std::min(m / 4, nSamples);
+
+				boost::random::mt19937 rng;
+				boost::random::uniform_int_distribution<> range(0, m - 1);
+
+				float d1 = 0;
+				float d2 = 0;
+				for (size_t i = 0; i < nSamples; i++)
+				{
+						size_t index = range(rng);
+						d1 += distance(h1.cps[index], cmp_hair.cps[index]);
+						d2 += distance(h2.cps[index], cmp_hair.cps[index]);
+				}
+
+				return d1 < d2;
+		};
+
+		//start combination loop
+		while (count != hairs.size() - 1) 
+		{
+			Bounds3f rootBounds;
+			int axis = 0;
+			size_t min_ind = count;
+			size_t c = count;
+			std::for_each(hairs.begin() + count, hairs.end(), [&c, &hairs, &rootBounds](const Hair& h) { rootBounds = Union(rootBounds, hairs[c].cps[0]); c++; });			
+			axis = rootBounds.MaximumExtent();
+
+			c = count;
+			std::for_each(hairs.begin() + count, hairs.end(), [&c, &hairs, &axis, &min_ind](const Hair& h) { if (h.cps[0][axis] < hairs[min_ind].cps[0][axis]) min_ind = c;  c++; });
+			cmp_hair = hairs[min_ind];
+
+			//std::cout << "min | count: " << min_ind << " | " << count << "\n";
+
+			//sortByRootPointDistance, sortByStartAndEndPointDistance, sortBySamplePointDistance
+			std::partial_sort(hairs.begin() + count,
+												hairs.begin() + count + (hairs.size() - count) / 2,
+												hairs.end(), sortBySamplePointDistance);
+
+			//count how many hairs to combine
+			int nHairs = 1;
+			float rootDist = 0;
+			while (true) {
+				int i = count + nHairs;
+				if (i == hairs.size() - 1) break;
+
+				rootDist = distance(cmp_hair.cps[0], hairs[i].cps[0]);
+				if (rootDist >= MAX_DISTANCE) break;
+
+				nHairs++;
+			}
+
+			// combine from count to cmp_ind + nHairs onto cmp_hair
+			float inv = 1.0f / nHairs;
+			for (size_t i = count; i < count + nHairs; i++)
+			{
+				size_t size = hairs[i].size();
+				size_t before = cmp_hair.size();
+				cmp_hair.resize(std::max(cmp_hair.size(), size));
+
+				for (size_t k = 0; k < size; k++)
+				{
+					cmp_hair.cps[k] = cmp_hair.cps[k] + hairs[i].cps[k] * inv;
+
+					if (k < before) {
+							float d = distance(hairs[i].cps[k], hairs[count].cps[k]);
+							/*if(d > MAX_HAIR_RADIUS * 2) std::cout << d << " | " << i << " | " << k << std::endl;*/
+							cmp_hair.radii[k] = std::min(std::max(cmp_hair.radii[k], d), MAX_HAIR_RADIUS * 2);
+					} else {
+						/*	std::cout << "cmp_hair.size() < add.size() (i: " << i << ") ";
+							std::cout << cmp_hair.size() << " | " << hairs[i].size() << "\n";*/
+
+							cmp_hair.radii[k] = MAX_HAIR_RADIUS;
+					}					
+				}
+			}
+
+			combined.push_back(std::move(cmp_hair));
+			count += nHairs;
+			
+			//std::cout << count << " | " << nHairs << std::endl;
+		} // combination loop
+
+		std::cout << "end LOD, combined hair to " << combined.size() << " hairs.\n";
+		std::cout << "move combined hair to vertices array \n";
+
+		for (size_t i = 0; i < combined.size(); i++)
+		{
+			for (size_t j = 0; j < combined[i].size(); j++)
+			{
+				vertices->push_back(combined[i].cps[j].x);
+				vertices->push_back(combined[i].cps[j].y);
+				vertices->push_back(combined[i].cps[j].z);
+
+				radiuss->push_back(combined[i].radii[j]);
+			}
+		}
+
+		std::cout << "move complete \n";
+  } // lod
 
   return true;
 }
@@ -412,7 +553,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[1], "-h") == 0) {
         fprintf(stderr,
                 "usage: cyhair2pbrt [CyHair filename] [pbrt output filename] "
-                "(max strands) (thickness)\n");
+                "(lod level) (max strands) (thickness)\n");
         return EXIT_FAILURE;
     }
 
@@ -422,14 +563,18 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+	int lod_level = -1;
+	if (argc > 3)
+		lod_level = atoi(argv[3]);
+
     int max_strands = -1;         // -1 = Convert all strands
     float user_thickness = 1.0f;  // -1 = Use thickness in CyHair file.
-    if (argc > 3) {
-        max_strands = atoi(argv[3]);
+    if (argc > 4) {
+        max_strands = atoi(argv[4]);
     }
 
-    if (argc > 4) {
-        user_thickness = atof(argv[4]);
+    if (argc > 5) {
+        user_thickness = atof(argv[5]);
     }
 
     cyhair::CyHair hair;
@@ -441,12 +586,10 @@ int main(int argc, char *argv[]) {
 
     std::vector<float> points;
     std::vector<float> radiuss;
-	std::vector<int> primIds;
     const float vertex_scale[3] = {1.0f, 1.0f, 1.0f};
     const float vertex_translate[3] = {0.0f, 0.0f, 0.0f};
-    ret =
-        hair.ToCubicBezierCurves(&points, &radiuss, &primIds, vertex_scale,
-                                 vertex_translate, max_strands, user_thickness);
+    ret = hair.ToCubicBezierCurves(&points, &radiuss, vertex_scale,
+                                 vertex_translate, max_strands, user_thickness, lod_level);
     if (!ret) {
         fprintf(stderr, "Failed to convert CyHair data\n");
         return EXIT_FAILURE;
@@ -474,21 +617,16 @@ int main(int argc, char *argv[]) {
 
     const size_t num_curves = radiuss.size() / 4;
     for (size_t i = 0; i < num_curves; i++) {
-        fprintf(
-            f,
-            "Shape \"curve\" \"string type\" [ \"cylinder\" ] \"point P\" [ ");
+        fprintf(f, "Shape \"curve\" \"string type\" [ \"cylinder\" ] \"point P\" [ ");
+
         for (size_t j = 0; j < 12; j++) {
             fprintf(f, "%f ", static_cast<double>(points[12 * i + j]));
         }
-        fprintf(f, " ] \"float width0\" [ %f ] \"float width1\" [ %f ]",
-                static_cast<double>(radiuss[4 * i + 0]),
-                static_cast<double>(radiuss[4 * i + 3]));
-		fprintf(f, " \" integer primId\" [ %i ]", static_cast<int>(primIds[i]));
-		fprintf(f, " \" integer cyCurve\" [ %i ]\n", static_cast<int>(0));
-		
-    }
 
-	//fprintf(f, "CyHairEnd\n");
+        fprintf(f, " ] \"float width0\" [ %f ] \"float width1\" [ %f ]\n",
+                static_cast<double>(radiuss[4 * i + 0]),
+                static_cast<double>(radiuss[4 * i + 3]));		
+    }
 
     if (f != stdout) fclose(f);
 
