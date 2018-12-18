@@ -402,7 +402,6 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
   if (lod_level > 0) {
 	  std::cout << "begin LOD with " << hairs.size() << " hairs.\n";
 
-		const int CPS_PER_SEGMENT = 4;
 		const float MAX_HAIR_RADIUS = 2.0f; //TODO: user defined input for radius in lod levels
 		const float MAX_DISTANCE = MAX_HAIR_RADIUS * 2.0f;
 
@@ -486,31 +485,30 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
 			float inv = 1.0f / nHairs;
 			for (size_t i = count; i < count + nHairs; i++)
 			{
+				bool size_diff = false;
 				size_t size = hairs[i].size();
-				size_t before = cmp_hair.size();
-				cmp_hair.resize(std::max(cmp_hair.size(), size));
+
+				if (size != cmp_hair.size()) {
+						nHairs = nHairs--;
+						if(i != count + nHairs ) std::swap(hairs[i], hairs[count + nHairs]);
+						continue;
+				}
+
+				//bring radii vector up to scale
+				cmp_hair.resize(size);
 
 				for (size_t k = 0; k < size; k++)
 				{
-					cmp_hair.cps[k] = cmp_hair.cps[k] + hairs[i].cps[k] * inv;
+						cmp_hair.cps[k] = cmp_hair.cps[k] + hairs[i].cps[k] * inv;
 
-					if (k < before) {
-							float d = distance(hairs[i].cps[k], hairs[count].cps[k]);
-							/*if(d > MAX_HAIR_RADIUS * 2) std::cout << d << " | " << i << " | " << k << std::endl;*/
-							cmp_hair.radii[k] = std::min(std::max(cmp_hair.radii[k], d), MAX_HAIR_RADIUS * 2);
-					} else {
-						/*	std::cout << "cmp_hair.size() < add.size() (i: " << i << ") ";
-							std::cout << cmp_hair.size() << " | " << hairs[i].size() << "\n";*/
-
-							cmp_hair.radii[k] = MAX_HAIR_RADIUS;
-					}					
+						float d = distance(hairs[i].cps[k], hairs[count].cps[k]);
+						cmp_hair.radii[k] = std::min(std::max(cmp_hair.radii[k], d), MAX_HAIR_RADIUS * 2);	
 				}
 			}
-
+			
 			combined.push_back(std::move(cmp_hair));
 			count += nHairs;
 			
-			//std::cout << count << " | " << nHairs << std::endl;
 		} // combination loop
 
 		std::cout << "end LOD, combined hair to " << combined.size() << " hairs.\n";
