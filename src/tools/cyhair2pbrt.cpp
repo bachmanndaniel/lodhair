@@ -409,8 +409,12 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
 		Hair cmp_hair;
 		std::vector<Hair> combined;
 
+		auto sortBySegments = [](const Hair& h1, const Hair& h2) {
+				return h1.cps.size() < h2.cps.size();
+		};
+
 		//Sort by distance of hair root CPs
-		auto sortByRootPointDistance = [&cmp_hair](const Hair& h1, const Hair& h2) -> bool {
+		auto sortByRootPointDistance = [&cmp_hair](const Hair& h1, const Hair& h2) {
 				return distance(cmp_hair.cps[0], h1.cps[0]) < distance(cmp_hair.cps[0], h2.cps[0]);
 		};
 
@@ -453,6 +457,7 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
 			Bounds3f rootBounds;
 			int axis = 0;
 			size_t min_ind = count;
+
 			size_t c = count;
 			std::for_each(hairs.begin() + count, hairs.end(), [&c, &hairs, &rootBounds](const Hair& h) { rootBounds = Union(rootBounds, hairs[c].cps[0]); c++; });			
 			axis = rootBounds.MaximumExtent();
@@ -461,52 +466,51 @@ bool CyHair::ToCubicBezierCurves(std::vector<float> *vertices,
 			std::for_each(hairs.begin() + count, hairs.end(), [&c, &hairs, &axis, &min_ind](const Hair& h) { if (h.cps[0][axis] < hairs[min_ind].cps[0][axis]) min_ind = c;  c++; });
 			cmp_hair = hairs[min_ind];
 
-			//std::cout << "min | count: " << min_ind << " | " << count << "\n";
+			////sortByRootPointDistance, sortByStartAndEndPointDistance, sortBySamplePointDistance
+			//std::partial_sort(hairs.begin() + count,
+			//									hairs.begin() + count + (hairs.size() - count) / 2,
+			//									hairs.end(), sortBySamplePointDistance);
 
 			//sortByRootPointDistance, sortByStartAndEndPointDistance, sortBySamplePointDistance
-			std::partial_sort(hairs.begin() + count,
-												hairs.begin() + count + (hairs.size() - count) / 2,
-												hairs.end(), sortBySamplePointDistance);
+			std::sort(hairs.begin() + count, hairs.end(), sortBySamplePointDistance);
 
 			//count how many hairs to combine
 			int nHairs = 1;
+			int sameSizeHairs = 1;
 			float rootDist = 0;
 			while (true) {
 				int i = count + nHairs;
 				if (i == hairs.size() - 1) break;
-
+				
 				rootDist = distance(cmp_hair.cps[0], hairs[i].cps[0]);
 				if (rootDist >= MAX_DISTANCE) break;
 
+				if (cmp_hair.size() >= hairs[i].size()) sameSizeHairs++;
 				nHairs++;
 			}
 
-			// combine from count to cmp_ind + nHairs onto cmp_hair
+			std::sort(hairs.begin() + count + 1, hairs.begin() + count + nHairs, sortBySegments);
+			nHairs = sameSizeHairs;
+
+			// combine from count to cmp_ind + nHairs			
 			float inv = 1.0f / nHairs;
+			Hair accum;
+			accum.resize(cmp_hair.size(), user_thickness);
+			size_t size = accum.size();
 			for (size_t i = count; i < count + nHairs; i++)
 			{
-				bool size_diff = false;
-				size_t size = hairs[i].size();
-
-				if (size != cmp_hair.size()) {
-						nHairs = nHairs--;
-						if(i != count + nHairs ) std::swap(hairs[i], hairs[count + nHairs]);
-						continue;
-				}
-
-				//bring radii vector up to scale
-				cmp_hair.resize(size);
-
 				for (size_t k = 0; k < size; k++)
 				{
-						cmp_hair.cps[k] = cmp_hair.cps[k] + hairs[i].cps[k] * inv;
+						//average cp
+						accum.cps[k] = accum.cps[k] + hairs[i].cps[k] * inv;
 
+						//search for biggest distance radius for each cp
 						float d = distance(hairs[i].cps[k], hairs[count].cps[k]);
-						cmp_hair.radii[k] = std::min(std::max(cmp_hair.radii[k], d), MAX_HAIR_RADIUS * 2);	
+						accum.radii[k] = std::min(std::max(accum.radii[k], d), MAX_HAIR_RADIUS * 2);
 				}
 			}
-			
-			combined.push_back(std::move(cmp_hair));
+		
+			combined.push_back(std::move(accum));
 			count += nHairs;
 			
 		} // combination loop

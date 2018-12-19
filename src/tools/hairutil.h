@@ -24,6 +24,12 @@ namespace cyhair {
 					radii.resize(size);
 					cpInfo.resize(size);
 			}
+
+			void resize(size_t size, float radius) {
+					cps.resize(size);
+					radii.resize(size, radius);
+					cpInfo.resize(size);
+			}
 			
 			Bounds3f bounds;
 			std::vector<real3> cps;
