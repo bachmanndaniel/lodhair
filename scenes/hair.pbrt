@@ -1,5 +1,5 @@
 
-LookAt 100 0 100  # eye
+LookAt 150 0 150  # eye
        0 0 0  # look at point
        0 0 1    # up vector
 
