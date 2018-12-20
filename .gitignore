@@ -2080,3 +2080,5 @@ src/objs
 /scenes/hair/lodblonde.pbrt
 /build/x64/Release/ZERO_CHECK/ZERO_CHECK.Build.CppClean.log
 /scenes/hair/lodstraight.pbrt
+/build/Release/blonde.pbrt
+/build/Release/lodblonde daniel d7e3dfde.exr
